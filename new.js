@@ -201,8 +201,37 @@ const startBot = async () => {
         console.log("📱 Scan QR")
     })
 
-    client.on("ready", () => {
-        console.log("✅ WhatsApp Ready")
+
+    /*
+
+Group Name : Sales lead report Krishna Air Co. Service
+Group ID   : 120363158598107900@g.us
+
+
+Group Name : Krishna air co Team
+Group ID   : 120363217957933482@g.us
+
+Group Name :  Krishna Back office..✨
+Group ID   : 120363348855885631@g.us
+
+    */
+
+    client.on("ready", async () => {
+        console.log("✅ WhatsApp Ready");
+
+
+        const chats = await client.getChats()
+
+        const groups = chats.filter(chat => chat.isGroup)
+
+        console.log(`Found ${groups.length} groups:\n`)
+
+        groups.forEach(group => {
+            console.log(`Group Name : ${group.name}`)
+            console.log(`Group ID   : ${group.id._serialized}`)
+            console.log("---------------------------")
+        })
+
     })
 
     client.on("disconnected", reason => {
@@ -210,19 +239,40 @@ const startBot = async () => {
         client.initialize()
     })
 
+    // allowed groups
+    const allowedGroups = new Set([
+        "120363420977770640@g.us",
+        "120363158598107900@g.us", // Sales lead report Krishna Air Co. Service
+        "120363217957933482@g.us", // Krishna air co Team
+        "120363348855885631@g.us"  // Krishna Back office..✨
+    ])
+
     client.on("message", async msg => {
 
+        // ignore own messages
         if (msg.fromMe) return
 
         const jid = msg.from
+        const chat = await msg.getChat()
+
+        // ✅ allow private chats
+        const isPrivate = !chat.isGroup
+
+        // ✅ allow only selected groups
+        const isAllowedGroup = chat.isGroup && allowedGroups.has(chat.id._serialized)
+
+        // ignore other groups
+        if (!isPrivate && !isAllowedGroup) return
+
         const input = msg.body.trim()
         const state = userState[jid]
 
+        // start command
         if (input.toLowerCase() === "carepack") {
 
             userState[jid] = { step: "product" }
 
-            let menu = "📦 Select Product:\n"
+            let menu = "📦 *Select Product:*\n"
             productList.forEach((p, i) => {
                 menu += `\n${i + 1}. ${p.ProductSubCategory}`
             })
@@ -232,10 +282,11 @@ const startBot = async () => {
 
         if (!state) return
 
+        // product selection
         if (state.step === "product") {
 
             const n = parseInt(input)
-            if (n < 1 || n > productList.length) return
+            if (!n || n < 1 || n > productList.length) return
 
             const selected = productList[n - 1]
 
@@ -243,9 +294,10 @@ const startBot = async () => {
             state.productName = selected.ProductSubCategory
             state.step = "model"
 
-            return msg.reply(`📦 ${state.productName}\nEnter Model Number`)
+            return msg.reply(`📦 *${state.productName}*\nEnter Model Number`)
         }
 
+        // model step
         if (state.step === "model") {
 
             await msg.reply("⏳ Checking...")
